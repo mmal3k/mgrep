@@ -3,12 +3,12 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"gutenberg-backend/internal/parse"
 )
-
 
 func main() {
 	input, err := readRegEx()
@@ -31,7 +31,7 @@ func readRegEx() (string, error) {
 	}
 	fmt.Print("regEx: ")
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return "", err
 	}
 	s := strings.TrimSpace(line)

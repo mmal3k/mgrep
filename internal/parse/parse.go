@@ -57,6 +57,11 @@ func Parse(regEx string) (*RegExTree, error) {
 	}
 	result := make([]*RegExTree, 0, len(regEx))
 	for i := 0; i < len(regEx); i++ {
+		c := regEx[i]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+			c == '.' || c == '*' || c == '|' || c == '(' || c == ')') {
+			return nil, fmt.Errorf("unsupported character %q at position %d", c, i)
+		}
 		result = append(result, newRegExTree(charToRoot(regEx[i]), nil))
 	}
 	return parseTrees(result)
@@ -170,7 +175,8 @@ func processStar(trees []*RegExTree) ([]*RegExTree, error) {
 	result := make([]*RegExTree, 0, len(trees))
 	for i, tree := range trees {
 		if tree.Root == STAR && len(tree.SubTrees) == 0 {
-			if len(result) == 0 {
+			if len(result) == 0 || result[len(result)-1].Root == ALTERNATION ||
+				result[len(result)-1].Root == OPEN_PARENTHESIS {
 				return nil, fmt.Errorf("lonely '*'")
 			}
 			last := result[len(result)-1]

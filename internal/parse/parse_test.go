@@ -31,7 +31,7 @@ func TestParseTrees(t *testing.T) {
 }
 
 func TestParseSyntaxError(t *testing.T) {
-	for _, input := range []string{"", "*", "|a", "a|", "("} {
+	for _, input := range []string{"", "*", "|a", "a|", "(", "a|*b", "a1", "a+b", "a[b]", "é"} {
 		if _, err := Parse(input); err == nil {
 			t.Fatalf("%q: expected syntax error", input)
 		}
