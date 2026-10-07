@@ -2,6 +2,7 @@ package automata
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -76,4 +77,40 @@ func (a *Automaton) epsilonClosure(state int) []int {
 	visit(state)
 
 	return closure
+}
+
+func (a *Automaton) isAccepted(text string) bool {
+	current := make(map[int]bool)
+
+	for _, state := range a.epsilonClosure(a.Start) {
+		current[state] = true
+	}
+
+	for _, c := range text {
+		next := make(map[int]bool)
+
+		for state := range current {
+			destinations := append([]int{}, a.States[state].On[c]...)
+			destinations = append(destinations, a.States[state].Any...)
+
+			for _, destination := range destinations {
+				for _, reachable := range a.epsilonClosure(destination) {
+					next[reachable] = true
+				}
+			}
+		}
+
+		if len(next) == 0 {
+			return false
+		}
+
+		current = next
+	}
+
+	for state := range current {
+		if slices.Contains(a.Accept, state) {
+			return true
+		}
+	}
+	return false
 }
