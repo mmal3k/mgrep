@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"gutenberg-backend/internal/automata"
 	"gutenberg-backend/internal/parse"
 )
 
@@ -22,7 +23,13 @@ func main() {
 		fmt.Fprintf(os.Stderr, "syntax error for %q: %v\n", input, err)
 		os.Exit(1)
 	}
+	fmt.Println("Syntax tree:")
 	fmt.Println(tree)
+	fmt.Println("\nNFA:")
+	nfa := automata.FromTree(tree)
+	fmt.Print(nfa)
+	fmt.Println("\nDFA:")
+	fmt.Print(nfa.Determinize())
 }
 
 func readRegEx() (string, error) {
