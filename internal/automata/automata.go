@@ -79,7 +79,7 @@ func (a *Automaton) epsilonClosure(state int) []int {
 	return closure
 }
 
-func (a *Automaton) isAccepted(text string) bool {
+func (a *Automaton) IsAccepted(text string) bool {
 	current := make(map[int]bool)
 
 	for _, state := range a.epsilonClosure(a.Start) {

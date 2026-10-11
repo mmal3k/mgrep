@@ -38,10 +38,10 @@ func TestIsAccepted(t *testing.T) {
 				t.Fatal(err)
 			}
 			n := FromTree(tree)
-			if got := n.isAccepted(tt.text); got != tt.want {
+			if got := n.IsAccepted(tt.text); got != tt.want {
 				t.Errorf("NFA: got %v, want %v", got, tt.want)
 			}
-			if got := n.Determinize().isAccepted(tt.text); got != tt.want {
+			if got := n.Determinize().IsAccepted(tt.text); got != tt.want {
 				t.Errorf("DFA: got %v, want %v", got, tt.want)
 			}
 		})
@@ -60,13 +60,13 @@ func TestIsAcceptedWildcardSemantics(t *testing.T) {
 	}
 	n := &NFA{Automaton: a}
 	d := &DFA{Automaton: a}
-	if !n.isAccepted("a") {
+	if !n.IsAccepted("a") {
 		t.Fatal("NFA must also follow the wildcard on an explicit letter")
 	}
-	if d.isAccepted("a") {
+	if d.IsAccepted("a") {
 		t.Fatal("DFA must use the explicit transition instead of the fallback")
 	}
-	if !d.isAccepted("b") {
+	if !d.IsAccepted("b") {
 		t.Fatal("DFA must use the fallback when the letter has no transition")
 	}
 }

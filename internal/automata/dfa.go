@@ -13,7 +13,7 @@ func (d *DFA) String() string {
 	return strings.ReplaceAll(d.Automaton.String(), "--ANY-->", "--OTHER-->")
 }
 
-func (d *DFA) isAccepted(text string) bool {
+func (d *DFA) IsAccepted(text string) bool {
 	current := d.Start
 
 	for _, letter := range text {
