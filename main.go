@@ -1,49 +1,117 @@
 package main
 
 import (
-	"bufio"
+	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"gutenberg-backend/internal/automata"
 	"gutenberg-backend/internal/parse"
+	"gutenberg-backend/internal/search"
 )
 
+type options struct {
+	pattern string
+	text    *string
+	path    string
+	debug   bool
+}
+
 func main() {
-	input, err := readRegEx()
-	if err != nil {
+	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	tree, err := parse.Parse(input)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "syntax error for %q: %v\n", input, err)
-		os.Exit(1)
-	}
-	fmt.Println("Syntax tree:")
-	fmt.Println(tree)
-	fmt.Println("\nNFA:")
-	nfa := automata.FromTree(tree)
-	fmt.Print(nfa)
-	fmt.Println("\nDFA:")
-	fmt.Print(nfa.Determinize())
 }
 
-func readRegEx() (string, error) {
-	if len(os.Args) > 1 {
-		return os.Args[1], nil
+func run(args []string, output io.Writer, diagnostics io.Writer) error {
+	opts, err := readOptions(args, diagnostics)
+	if errors.Is(err, flag.ErrHelp) {
+		return nil
 	}
-	fmt.Print("regEx: ")
-	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", err
+	if err != nil {
+		return err
 	}
-	s := strings.TrimSpace(line)
-	if s == "" {
-		return "", fmt.Errorf("empty regEx")
+
+	if opts.debug {
+		if err := printAutomata(opts.pattern, diagnostics); err != nil {
+			return err
+		}
 	}
-	return s, nil
+	if opts.path != "" {
+		return searchFile(opts.pattern, opts.path, output)
+	}
+	if opts.text != nil {
+		return testText(opts.pattern, *opts.text, output)
+	}
+	return nil
+}
+
+func readOptions(args []string, output io.Writer) (options, error) {
+	var opts options
+	flags := flag.NewFlagSet("gutenberg-backend", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	flags.StringVar(&opts.pattern, "regex", "", "Regex to compile")
+	flags.StringVar(&opts.path, "file", "", "Text file to search")
+	flags.BoolVar(&opts.debug, "debug", false, "Print the syntax tree, NFA, and DFA")
+	flags.Func("text", "Text to test", func(text string) error {
+		opts.text = &text
+		return nil
+	})
+
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			flags.SetOutput(output)
+			flags.Usage()
+		}
+		return opts, err
+	}
+	if flags.NArg() != 0 {
+		return opts, fmt.Errorf("use -regex, -text, and -file instead of positional arguments")
+	}
+	if opts.pattern == "" {
+		return opts, fmt.Errorf("provide a regex with -regex")
+	}
+	if opts.text != nil && opts.path != "" {
+		return opts, fmt.Errorf("choose either -text or -file")
+	}
+	if opts.text == nil && opts.path == "" && !opts.debug {
+		return opts, fmt.Errorf("choose -text, -file, or -debug")
+	}
+	return opts, nil
+}
+
+func searchFile(pattern string, path string, output io.Writer) error {
+	matcher, err := search.NewMatcher(pattern)
+	if err != nil {
+		return fmt.Errorf("invalid regex %q: %w", pattern, err)
+	}
+	return search.Lines(path, output, matcher)
+}
+
+func testText(pattern string, text string, output io.Writer) error {
+	tree, err := parse.Parse(pattern)
+	if err != nil {
+		return fmt.Errorf("invalid regex %q: %w", pattern, err)
+	}
+	dfa := automata.FromTree(tree).Determinize()
+	matcher, err := search.NewMatcher(pattern)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(output, "Text: %q\nAccepted: %t\nContains match: %t\n", text, dfa.IsAccepted(text), matcher.ContainsMatch(text))
+	return err
+}
+
+func printAutomata(pattern string, output io.Writer) error {
+	tree, err := parse.Parse(pattern)
+	if err != nil {
+		return fmt.Errorf("invalid regex %q: %w", pattern, err)
+	}
+	nfa := automata.FromTree(tree)
+	dfa := nfa.Determinize()
+	_, err = fmt.Fprintf(output, "Syntax tree:\n%s\n\nNFA:\n%s\nDFA:\n%s", tree, nfa, dfa)
+	return err
 }
