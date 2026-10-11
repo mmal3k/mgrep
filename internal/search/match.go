@@ -1,8 +1,8 @@
 package search
 
 import (
-	"gutenberg-backend/internal/automata"
-	"gutenberg-backend/internal/parse"
+	"github.com/mmal3k/regex-cli/internal/automata"
+	"github.com/mmal3k/regex-cli/internal/parse"
 )
 
 type Matcher struct {

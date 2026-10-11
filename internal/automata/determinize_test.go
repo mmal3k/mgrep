@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"gutenberg-backend/internal/parse"
+	"github.com/mmal3k/regex-cli/internal/parse"
 )
 
 func TestDeterminizePreservesLanguage(t *testing.T) {

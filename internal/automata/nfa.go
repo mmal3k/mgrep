@@ -1,7 +1,7 @@
 package automata
 
 import (
-	"gutenberg-backend/internal/parse"
+	"github.com/mmal3k/regex-cli/internal/parse"
 	"maps"
 	"slices"
 )

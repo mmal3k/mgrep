@@ -3,7 +3,7 @@ package automata
 import (
 	"testing"
 
-	"gutenberg-backend/internal/parse"
+	"github.com/mmal3k/regex-cli/internal/parse"
 )
 
 func TestIsAccepted(t *testing.T) {

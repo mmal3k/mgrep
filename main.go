@@ -7,9 +7,9 @@ import (
 	"io"
 	"os"
 
-	"gutenberg-backend/internal/automata"
-	"gutenberg-backend/internal/parse"
-	"gutenberg-backend/internal/search"
+	"github.com/mmal3k/regex-cli/internal/automata"
+	"github.com/mmal3k/regex-cli/internal/parse"
+	"github.com/mmal3k/regex-cli/internal/search"
 )
 
 type options struct {
@@ -51,7 +51,7 @@ func run(args []string, output io.Writer, diagnostics io.Writer) error {
 
 func readOptions(args []string, output io.Writer) (options, error) {
 	var opts options
-	flags := flag.NewFlagSet("gutenberg-backend", flag.ContinueOnError)
+	flags := flag.NewFlagSet("regex-cli", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&opts.pattern, "regex", "", "Regex to compile")
 	flags.StringVar(&opts.path, "file", "", "Text file to search")
