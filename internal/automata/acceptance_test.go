@@ -3,7 +3,7 @@ package automata
 import (
 	"testing"
 
-	"github.com/mmal3k/regex-cli/internal/parse"
+	"github.com/mmal3k/mgrep/internal/parse"
 )
 
 func TestIsAccepted(t *testing.T) {

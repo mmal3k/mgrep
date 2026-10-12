@@ -1,8 +1,8 @@
 package search
 
 import (
-	"github.com/mmal3k/regex-cli/internal/automata"
-	"github.com/mmal3k/regex-cli/internal/parse"
+	"github.com/mmal3k/mgrep/internal/automata"
+	"github.com/mmal3k/mgrep/internal/parse"
 )
 
 type Matcher struct {

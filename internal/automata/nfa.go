@@ -1,7 +1,7 @@
 package automata
 
 import (
-	"github.com/mmal3k/regex-cli/internal/parse"
+	"github.com/mmal3k/mgrep/internal/parse"
 	"maps"
 	"slices"
 )

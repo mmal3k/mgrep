@@ -1,4 +1,4 @@
-# regex-cli
+# mgrep
 
 A Go command-line tool for searching text files with a small regular-expression engine implemented from scratch.
 
@@ -11,7 +11,7 @@ Go 1.26.5 or newer. There are no third-party Go dependencies.
 ## Build
 
 ```bash
-go build -o bin/regex-cli .
+go build -o bin/mgrep .
 ```
 
 ## Usage
@@ -19,7 +19,7 @@ go build -o bin/regex-cli .
 Search a file:
 
 ```bash
-./bin/regex-cli -regex 'ab' -file internal/search/testdata/sample.txt
+./bin/mgrep -regex 'ab' -file internal/search/testdata/sample.txt
 ```
 
 A line such as `xxabyy` matches because it contains `ab`.
@@ -27,7 +27,7 @@ A line such as `xxabyy` matches because it contains `ab`.
 Test a string:
 
 ```bash
-./bin/regex-cli -regex 'ab' -text 'xxabyy'
+./bin/mgrep -regex 'ab' -text 'xxabyy'
 ```
 
 ```text
@@ -41,16 +41,16 @@ Contains match: true
 Test an empty string:
 
 ```bash
-./bin/regex-cli -regex 'a*' -text ''
+./bin/mgrep -regex 'a*' -text ''
 ```
 
 Inspect the syntax tree and automata:
 
 ```bash
-./bin/regex-cli -regex 'a|bc*' -debug
+./bin/mgrep -regex 'a|bc*' -debug
 ```
 
-Debug output goes to stderr, so it can also be enabled during a file search without mixing it into stdout. Use `-h` for the flag descriptions. All examples can also be run with `go run .` instead of `./bin/regex-cli`.
+Debug output goes to stderr, so it can also be enabled during a file search without mixing it into stdout. Use `-h` for the flag descriptions. All examples can also be run with `go run .` instead of `./bin/mgrep`.
 
 ## Supported patterns
 

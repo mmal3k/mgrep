@@ -1,3 +1,3 @@
-module github.com/mmal3k/regex-cli
+module github.com/mmal3k/mgrep
 
 go 1.26.5
