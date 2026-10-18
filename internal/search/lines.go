@@ -7,7 +7,11 @@ import (
 	"os"
 )
 
-func Lines(path string, output io.Writer, matcher *Matcher) error {
+type TextMatcher interface {
+	ContainsMatch(text string) bool
+}
+
+func Lines(path string, output io.Writer, matcher TextMatcher) error {
 	file, err := os.Open(path)
 
 	if err != nil {

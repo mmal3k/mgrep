@@ -13,10 +13,11 @@ import (
 )
 
 type options struct {
-	pattern string
-	text    *string
-	path    string
-	debug   bool
+	algorithm string
+	pattern   string
+	text      *string
+	path      string
+	debug     bool
 }
 
 func main() {
@@ -41,10 +42,10 @@ func run(args []string, output io.Writer, diagnostics io.Writer) error {
 		}
 	}
 	if opts.path != "" {
-		return searchFile(opts.pattern, opts.path, output)
+		return searchFile(opts.pattern, opts.path, opts.algorithm, output)
 	}
 	if opts.text != nil {
-		return testText(opts.pattern, *opts.text, output)
+		return testText(opts.pattern, *opts.text, opts.algorithm, output)
 	}
 	return nil
 }
@@ -53,6 +54,7 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	var opts options
 	flags := flag.NewFlagSet("mgrep", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
+	flags.StringVar(&opts.algorithm, "algorithm", "dfa", "Search algorithm: dfa or kmp (literal ASCII letters only)")
 	flags.StringVar(&opts.pattern, "regex", "", "Regex to compile")
 	flags.StringVar(&opts.path, "file", "", "Text file to search")
 	flags.BoolVar(&opts.debug, "debug", false, "Print the syntax tree, NFA, DFA, and minimized DFA")
@@ -74,6 +76,12 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	if opts.pattern == "" {
 		return opts, fmt.Errorf("provide a regex with -regex")
 	}
+	if opts.algorithm != "dfa" && opts.algorithm != "kmp" {
+		return opts, fmt.Errorf("unknown algorithm %q; choose dfa or kmp", opts.algorithm)
+	}
+	if opts.debug && opts.algorithm != "dfa" {
+		return opts, fmt.Errorf("-debug displays automata and requires -algorithm dfa")
+	}
 	if opts.text != nil && opts.path != "" {
 		return opts, fmt.Errorf("choose either -text or -file")
 	}
@@ -83,25 +91,36 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	return opts, nil
 }
 
-func searchFile(pattern string, path string, output io.Writer) error {
-	matcher, err := search.NewMatcher(pattern)
+func newMatcher(pattern string, algorithm string) (search.TextMatcher, error) {
+	if algorithm == "kmp" {
+		return search.NewKMPMatcher(pattern)
+	}
+	return search.NewMatcher(pattern)
+}
+
+func searchFile(pattern string, path string, algorithm string, output io.Writer) error {
+	matcher, err := newMatcher(pattern, algorithm)
 	if err != nil {
-		return fmt.Errorf("invalid regex %q: %w", pattern, err)
+		return fmt.Errorf("invalid pattern %q: %w", pattern, err)
 	}
 	return search.Lines(path, output, matcher)
 }
 
-func testText(pattern string, text string, output io.Writer) error {
-	tree, err := parse.Parse(pattern)
-	if err != nil {
-		return fmt.Errorf("invalid regex %q: %w", pattern, err)
-	}
-	dfa := automata.FromTree(tree).Determinize().Minimize()
-	matcher, err := search.NewMatcher(pattern)
+func testText(pattern string, text string, algorithm string, output io.Writer) error {
+	matcher, err := newMatcher(pattern, algorithm)
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(output, "Text: %q\nAccepted: %t\nContains match: %t\n", text, dfa.IsAccepted(text), matcher.ContainsMatch(text))
+	accepted := text == pattern
+	if algorithm == "dfa" {
+		tree, err := parse.Parse(pattern)
+		if err != nil {
+			return err
+		}
+		dfa := automata.FromTree(tree).Determinize().Minimize()
+		accepted = dfa.IsAccepted(text)
+	}
+	_, err = fmt.Fprintf(output, "Text: %q\nAccepted: %t\nContains match: %t\n", text, accepted, matcher.ContainsMatch(text))
 	return err
 }
 

@@ -58,6 +58,9 @@ func TestRunRejectsInvalidArguments(t *testing.T) {
 		{"-regex", "a+", "-text", "a"},
 		{"-regex", "ab", "-file", "testdata/missing.txt"},
 		{"-unknown"},
+		{"-algorithm", "unknown", "-regex", "ab", "-text", "ab"},
+		{"-algorithm", "kmp", "-regex", "a|b", "-text", "a"},
+		{"-algorithm", "kmp", "-regex", "ab", "-debug"},
 		{"ab", "xxabyy"},
 	}
 	for _, args := range tests {
@@ -78,5 +81,48 @@ func TestRunHelp(t *testing.T) {
 	}
 	if !strings.Contains(diagnostics.String(), "-regex") {
 		t.Fatal("help must describe the regex option")
+	}
+}
+
+func TestRunKMP(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{
+			name: "file",
+			args: []string{"-algorithm", "kmp", "-regex", "Sargon", "-file", "internal/search/testdata/sample.txt"},
+			want: "Sargon ruled Babylon.\n",
+		},
+		{
+			name: "text",
+			args: []string{"-algorithm", "kmp", "-regex", "Sargon", "-text", "Hello Sargon"},
+			want: "Text: \"Hello Sargon\"\nAccepted: false\nContains match: true\n",
+		},
+		{
+			name: "whole string",
+			args: []string{"-algorithm", "kmp", "-regex", "Sargon", "-text", "Sargon"},
+			want: "Text: \"Sargon\"\nAccepted: true\nContains match: true\n",
+		},
+		{
+			name: "empty text",
+			args: []string{"-algorithm", "kmp", "-regex", "Sargon", "-text", ""},
+			want: "Text: \"\"\nAccepted: false\nContains match: false\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var output, diagnostics bytes.Buffer
+			if err := run(tt.args, &output, &diagnostics); err != nil {
+				t.Fatal(err)
+			}
+			if got := output.String(); got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+			if diagnostics.Len() != 0 {
+				t.Fatalf("unexpected diagnostics: %s", &diagnostics)
+			}
+		})
 	}
 }
