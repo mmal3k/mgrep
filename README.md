@@ -52,6 +52,17 @@ Inspect the syntax tree and automata:
 
 Debug output includes the syntax tree, epsilon-NFA, DFA, and minimized DFA. It goes to stderr, so it can also be enabled during a file search without mixing it into stdout. Use `-h` for the flag descriptions. All examples can also be run with `go run .` instead of `./bin/mgrep`.
 
+## Algorithms
+
+The default algorithm is `dfa`, which supports the regex operators below. Select `kmp` for literal patterns containing ASCII letters:
+
+```bash
+./bin/mgrep -algorithm kmp -regex 'Sargon' -file internal/search/testdata/sample.txt
+./bin/mgrep -algorithm kmp -regex 'Sargon' -text 'Hello Sargon'
+```
+
+The fallback table is built once per pattern and reused across file lines. KMP scans in linear time; its current educational table-construction code is not linear-time preprocessing yet. KMP does not interpret regex operators, so nonliteral patterns are rejected. Automaton debug output is available only with `-algorithm dfa`. Boyer–Moore is not available yet.
+
 ## Supported patterns
 
 - ASCII letters, with case-sensitive matching
