@@ -63,3 +63,16 @@ func TestContainsMatchReusesMatcher(t *testing.T) {
 		}
 	}
 }
+
+func TestNewMatcherMinimizesDFA(t *testing.T) {
+	matcher, err := NewMatcher(".*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matcher.dfa.States) != 1 {
+		t.Fatalf("got %d states, want one for a pattern accepting every string", len(matcher.dfa.States))
+	}
+	if !matcher.ContainsMatch("") || !matcher.ContainsMatch("anything") {
+		t.Fatal("minimized matcher must preserve acceptance")
+	}
+}

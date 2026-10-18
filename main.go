@@ -55,7 +55,7 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&opts.pattern, "regex", "", "Regex to compile")
 	flags.StringVar(&opts.path, "file", "", "Text file to search")
-	flags.BoolVar(&opts.debug, "debug", false, "Print the syntax tree, NFA, and DFA")
+	flags.BoolVar(&opts.debug, "debug", false, "Print the syntax tree, NFA, DFA, and minimized DFA")
 	flags.Func("text", "Text to test", func(text string) error {
 		opts.text = &text
 		return nil
@@ -96,7 +96,7 @@ func testText(pattern string, text string, output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("invalid regex %q: %w", pattern, err)
 	}
-	dfa := automata.FromTree(tree).Determinize()
+	dfa := automata.FromTree(tree).Determinize().Minimize()
 	matcher, err := search.NewMatcher(pattern)
 	if err != nil {
 		return err
@@ -112,6 +112,7 @@ func printAutomata(pattern string, output io.Writer) error {
 	}
 	nfa := automata.FromTree(tree)
 	dfa := nfa.Determinize()
-	_, err = fmt.Fprintf(output, "Syntax tree:\n%s\n\nNFA:\n%s\nDFA:\n%s", tree, nfa, dfa)
+	minimized := dfa.Minimize()
+	_, err = fmt.Fprintf(output, "Syntax tree:\n%s\n\nNFA:\n%s\nDFA:\n%s\nMinimized DFA:\n%s", tree, nfa, dfa, minimized)
 	return err
 }

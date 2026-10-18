@@ -15,7 +15,7 @@ func NewMatcher(pattern string) (*Matcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	dfa := automata.FromTree(tree).Determinize()
+	dfa := automata.FromTree(tree).Determinize().Minimize()
 	accepting := make([]bool, len(dfa.States))
 	for _, state := range dfa.Accept {
 		accepting[state] = true

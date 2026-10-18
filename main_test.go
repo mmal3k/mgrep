@@ -42,7 +42,7 @@ func TestRunFileWithDebug(t *testing.T) {
 	if got := output.String(); got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
-	for _, label := range []string{"Syntax tree:", "NFA:", "DFA:"} {
+	for _, label := range []string{"Syntax tree:", "NFA:", "DFA:", "Minimized DFA:"} {
 		if !strings.Contains(diagnostics.String(), label) {
 			t.Errorf("missing diagnostic %q", label)
 		}
