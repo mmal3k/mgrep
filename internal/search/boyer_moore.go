@@ -13,8 +13,8 @@ func NewBoyerMooreMatcher(pattern string) (*BoyerMooreMatcher, error) {
 		return nil, fmt.Errorf("Boyer-Moore requires a nonempty literal pattern")
 	}
 	for _, letter := range pattern {
-		if !('a' <= letter && letter <= 'z' || 'A' <= letter && letter <= 'Z') {
-			return nil, fmt.Errorf("Boyer-Moore supports only literal ASCII-letter patterns")
+		if !('a' <= letter && letter <= 'z' || 'A' <= letter && letter <= 'Z' || '0' <= letter && letter <= '9') {
+			return nil, fmt.Errorf("Boyer-Moore supports only literal ASCII letters and digits")
 		}
 	}
 	return &BoyerMooreMatcher{

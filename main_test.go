@@ -170,3 +170,20 @@ func TestRunBoyerMoore(t *testing.T) {
 		})
 	}
 }
+
+func TestRunLiteralDigits(t *testing.T) {
+	for _, algorithm := range []string{"kmp", "boyer-moore"} {
+		for _, pattern := range []string{"123", "a1B2"} {
+			var output, diagnostics bytes.Buffer
+			text := "Hello " + pattern
+			args := []string{"-algorithm", algorithm, "-regex", pattern, "-text", text}
+			if err := run(args, &output, &diagnostics); err != nil {
+				t.Fatal(err)
+			}
+			want := "Text: \"" + text + "\"\nAccepted: false\nContains match: true\n"
+			if output.String() != want {
+				t.Errorf("%s, pattern %q: got %q, want %q", algorithm, pattern, output.String(), want)
+			}
+		}
+	}
+}

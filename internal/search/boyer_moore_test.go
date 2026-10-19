@@ -54,7 +54,7 @@ func TestBoyerMooreMatcherReusesTables(t *testing.T) {
 }
 
 func TestBoyerMooreMatcherRejectsNonliteralPatterns(t *testing.T) {
-	for _, pattern := range []string{"", "a|b", "a*", "a.b", "(ab)", "a+", "[a-z]", "é", "a1", "a b"} {
+	for _, pattern := range []string{"", "a|b", "a*", "a.b", "(ab)", "a+", "[a-z]", "é", "a b", "١", "１"} {
 		if _, err := NewBoyerMooreMatcher(pattern); err == nil {
 			t.Errorf("should reject %q", pattern)
 		}

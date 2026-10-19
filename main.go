@@ -54,7 +54,7 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	var opts options
 	flags := flag.NewFlagSet("mgrep", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	flags.StringVar(&opts.algorithm, "algorithm", "dfa", "Search algorithm: dfa, kmp, or boyer-moore (kmp and boyer-moore require literal ASCII letters)")
+	flags.StringVar(&opts.algorithm, "algorithm", "dfa", "Search algorithm: dfa, kmp, or boyer-moore (kmp and boyer-moore require literal ASCII letters and digits)")
 	flags.StringVar(&opts.pattern, "regex", "", "Regex to compile")
 	flags.StringVar(&opts.path, "file", "", "Text file to search")
 	flags.BoolVar(&opts.debug, "debug", false, "Print the syntax tree, NFA, DFA, and minimized DFA")

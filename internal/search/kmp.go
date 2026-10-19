@@ -12,8 +12,8 @@ func NewKMPMatcher(pattern string) (*KMPMatcher, error) {
 		return nil, fmt.Errorf("KMP requires a nonempty literal pattern")
 	}
 	for _, letter := range pattern {
-		if !('a' <= letter && letter <= 'z' || 'A' <= letter && letter <= 'Z') {
-			return nil, fmt.Errorf("KMP supports only literal ASCII-letter patterns")
+		if !('a' <= letter && letter <= 'z' || 'A' <= letter && letter <= 'Z' || '0' <= letter && letter <= '9') {
+			return nil, fmt.Errorf("KMP supports only literal ASCII letters and digits")
 		}
 	}
 	return &KMPMatcher{pattern: pattern, co: construct_co(pattern)}, nil

@@ -53,7 +53,7 @@ func TestKMPMatcherReusesTable(t *testing.T) {
 }
 
 func TestKMPMatcherRejectsNonliteralPatterns(t *testing.T) {
-	for _, pattern := range []string{"", "a|b", "a*", "a.b", "(ab)", "a+", "[a-z]"} {
+	for _, pattern := range []string{"", "a|b", "a*", "a.b", "(ab)", "a+", "[a-z]", "é", "a b", "١", "１"} {
 		if _, err := NewKMPMatcher(pattern); err == nil {
 			t.Errorf("should reject %q", pattern)
 		}

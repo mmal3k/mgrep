@@ -54,7 +54,7 @@ Debug output includes the syntax tree, epsilon-NFA, DFA, and minimized DFA. It g
 
 ## Algorithms
 
-The default algorithm is `dfa`, which supports the regex operators below. Select `kmp` for literal patterns containing ASCII letters:
+The default algorithm is `dfa`, which supports the regex operators below. Select `kmp` for literal patterns containing ASCII letters and digits:
 
 ```bash
 ./bin/mgrep -algorithm kmp -regex 'Sargon' -file internal/search/testdata/sample.txt
@@ -63,12 +63,14 @@ The default algorithm is `dfa`, which supports the regex operators below. Select
 
 The fallback table is built once per pattern and reused across file lines. KMP scans in linear time; its current educational table-construction code is not linear-time preprocessing yet. KMP does not interpret regex operators, so nonliteral patterns are rejected. Automaton debug output is available only with `-algorithm dfa`.
 
-Boyer–Moore also supports nonempty literal ASCII-letter patterns:
+Boyer–Moore also supports nonempty patterns containing literal ASCII letters and digits:
 
 ```bash
 ./bin/mgrep -algorithm boyer-moore -regex 'Sargon' -file internal/search/testdata/sample.txt
 ./bin/mgrep -algorithm boyer-moore -regex 'Sargon' -text 'Hello Sargon'
 ```
+
+For example, `-regex '123'` and `-regex 'a1B2'` work with either literal matcher.
 
 It compares from right to left and combines bad-character and strong good-suffix shifts. Both tables are built once and reused across lines.
 
@@ -81,7 +83,7 @@ It compares from right to left and combines bad-character and strong good-suffix
 - Zero or more repetitions: `a*`
 - Any one character: `.`
 
-The DFA engine decodes input text as Unicode runes. KMP and Boyer–Moore compare bytes, which supports exact searches for their ASCII-letter patterns in UTF-8 text. Search operates on individual file lines; matches do not cross line boundaries.
+The DFA engine decodes input text as Unicode runes. KMP and Boyer–Moore compare bytes, which supports exact searches for their ASCII alphanumeric patterns in UTF-8 text. Search operates on individual file lines; matches do not cross line boundaries.
 
 This is a restricted regex implementation, not a full replacement for `grep -E`. Character classes, `+`, `?`, anchors, escaping, and backreferences are not supported.
 
