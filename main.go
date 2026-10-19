@@ -54,7 +54,7 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	var opts options
 	flags := flag.NewFlagSet("mgrep", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	flags.StringVar(&opts.algorithm, "algorithm", "dfa", "Search algorithm: dfa or kmp (literal ASCII letters only)")
+	flags.StringVar(&opts.algorithm, "algorithm", "dfa", "Search algorithm: dfa, kmp, or boyer-moore (kmp and boyer-moore require literal ASCII letters)")
 	flags.StringVar(&opts.pattern, "regex", "", "Regex to compile")
 	flags.StringVar(&opts.path, "file", "", "Text file to search")
 	flags.BoolVar(&opts.debug, "debug", false, "Print the syntax tree, NFA, DFA, and minimized DFA")
@@ -76,8 +76,8 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	if opts.pattern == "" {
 		return opts, fmt.Errorf("provide a regex with -regex")
 	}
-	if opts.algorithm != "dfa" && opts.algorithm != "kmp" {
-		return opts, fmt.Errorf("unknown algorithm %q; choose dfa or kmp", opts.algorithm)
+	if opts.algorithm != "dfa" && opts.algorithm != "kmp" && opts.algorithm != "boyer-moore" {
+		return opts, fmt.Errorf("unknown algorithm %q; choose dfa, kmp, or boyer-moore", opts.algorithm)
 	}
 	if opts.debug && opts.algorithm != "dfa" {
 		return opts, fmt.Errorf("-debug displays automata and requires -algorithm dfa")
@@ -94,6 +94,9 @@ func readOptions(args []string, output io.Writer) (options, error) {
 func newMatcher(pattern string, algorithm string) (search.TextMatcher, error) {
 	if algorithm == "kmp" {
 		return search.NewKMPMatcher(pattern)
+	}
+	if algorithm == "boyer-moore" {
+		return search.NewBoyerMooreMatcher(pattern)
 	}
 	return search.NewMatcher(pattern)
 }
