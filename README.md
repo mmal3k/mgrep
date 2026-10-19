@@ -61,7 +61,16 @@ The default algorithm is `dfa`, which supports the regex operators below. Select
 ./bin/mgrep -algorithm kmp -regex 'Sargon' -text 'Hello Sargon'
 ```
 
-The fallback table is built once per pattern and reused across file lines. KMP scans in linear time; its current educational table-construction code is not linear-time preprocessing yet. KMP does not interpret regex operators, so nonliteral patterns are rejected. Automaton debug output is available only with `-algorithm dfa`. Boyer–Moore is not available yet.
+The fallback table is built once per pattern and reused across file lines. KMP scans in linear time; its current educational table-construction code is not linear-time preprocessing yet. KMP does not interpret regex operators, so nonliteral patterns are rejected. Automaton debug output is available only with `-algorithm dfa`.
+
+Boyer–Moore also supports nonempty literal ASCII-letter patterns:
+
+```bash
+./bin/mgrep -algorithm boyer-moore -regex 'Sargon' -file internal/search/testdata/sample.txt
+./bin/mgrep -algorithm boyer-moore -regex 'Sargon' -text 'Hello Sargon'
+```
+
+It compares from right to left and combines bad-character and strong good-suffix shifts. Both tables are built once and reused across lines.
 
 ## Supported patterns
 
@@ -72,7 +81,7 @@ The fallback table is built once per pattern and reused across file lines. KMP s
 - Zero or more repetitions: `a*`
 - Any one character: `.`
 
-Characters in input text are decoded as Unicode runes. Search operates on individual file lines; matches do not cross line boundaries.
+The DFA engine decodes input text as Unicode runes. KMP and Boyer–Moore compare bytes, which supports exact searches for their ASCII-letter patterns in UTF-8 text. Search operates on individual file lines; matches do not cross line boundaries.
 
 This is a restricted regex implementation, not a full replacement for `grep -E`. Character classes, `+`, `?`, anchors, escaping, and backreferences are not supported.
 
@@ -84,6 +93,14 @@ go vet ./...
 ```
 
 Tests cover parsing, automaton construction, determinization, minimization (including language equivalence and state distinguishability), whole-string acceptance, substring matching, file output, and CLI arguments.
+
+Compare prepared matchers using synthetic late-match, absent-pattern, and repeated-suffix inputs:
+
+```bash
+go test ./internal/search -run '^$' -bench '^BenchmarkLiteralSearch$' -benchmem
+```
+
+These benchmarks exclude pattern compilation and file I/O; they do not measure a Gutenberg corpus.
 
 ## Layout
 
