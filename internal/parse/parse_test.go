@@ -13,6 +13,13 @@ func TestParseTrees(t *testing.T) {
 		{"ab", ".(a,b)"},
 		{"a|b", "|(a,b)"},
 		{"a*", "*(a)"},
+		{"a+", "+(a)"},
+		{"a+b", ".(+(a),b)"},
+		{"(ab)+", "+(.(a,b))"},
+		{"a|bc+", "|(a,.(b,+(c)))"},
+		{"(a|b)+", "+(|(a,b))"},
+		{"a+*", "*(+(a))"},
+		{"a*+", "+(*(a))"},
 		{"(a|b)*", "*(|(a,b))"},
 		{"a|bc*", "|(a,.(b,*(c)))"}, // Aho–Ullman ex. 10.25
 	}
@@ -31,7 +38,7 @@ func TestParseTrees(t *testing.T) {
 }
 
 func TestParseSyntaxError(t *testing.T) {
-	for _, input := range []string{"", "*", "|a", "a|", "(", "a|*b", "a1", "a+b", "a[b]", "é"} {
+	for _, input := range []string{"", "*", "|a", "a|", "(", "a|*b", "a1", "+", "+a", "a|+b", "(+a)", "a[b]", "é"} {
 		if _, err := Parse(input); err == nil {
 			t.Fatalf("%q: expected syntax error", input)
 		}

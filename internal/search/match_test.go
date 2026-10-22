@@ -17,6 +17,12 @@ func TestContainsMatch(t *testing.T) {
 		{"ab", "a", false},
 		{"ab", "", false},
 		{"a*", "", true},
+		{"a+", "", false},
+		{"a+", "xyz", false},
+		{"a+", "xxaaayy", true},
+		{"(ab)+c", "xxababczz", true},
+		{"(ab)+c", "xxczz", false},
+		{"S(a|g|r)+on", "Sargon", true},
 		{"a*", "xyz", true},
 		{"a|bc*", "xxbyy", true},
 		{"a|bc*", "xxxx", false},
@@ -42,7 +48,7 @@ func TestContainsMatch(t *testing.T) {
 }
 
 func TestNewMatcherRejectsInvalidPatterns(t *testing.T) {
-	for _, pattern := range []string{"", "(", "a|", "a+", "[a-z]"} {
+	for _, pattern := range []string{"", "(", "a|", "+a", "[a-z]"} {
 		if _, err := NewMatcher(pattern); err == nil {
 			t.Errorf("should reject %q", pattern)
 		}

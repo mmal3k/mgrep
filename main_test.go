@@ -55,7 +55,7 @@ func TestRunRejectsInvalidArguments(t *testing.T) {
 		{"-text", "ab"},
 		{"-regex", "ab"},
 		{"-regex", "ab", "-text", "ab", "-file", "book.txt"},
-		{"-regex", "a+", "-text", "a"},
+		{"-regex", "+a", "-text", "a"},
 		{"-regex", "ab", "-file", "testdata/missing.txt"},
 		{"-unknown"},
 		{"-algorithm", "unknown", "-regex", "ab", "-text", "ab"},
@@ -184,6 +184,26 @@ func TestRunLiteralDigits(t *testing.T) {
 			if output.String() != want {
 				t.Errorf("%s, pattern %q: got %q, want %q", algorithm, pattern, output.String(), want)
 			}
+		}
+	}
+}
+
+func TestRunPlus(t *testing.T) {
+	for _, tt := range []struct {
+		pattern string
+		text    string
+		want    string
+	}{
+		{"a+", "", "Text: \"\"\nAccepted: false\nContains match: false\n"},
+		{"(ab)+", "abab", "Text: \"abab\"\nAccepted: true\nContains match: true\n"},
+		{"S(a|g|r)+on", "Hello Sargon", "Text: \"Hello Sargon\"\nAccepted: false\nContains match: true\n"},
+	} {
+		var output, diagnostics bytes.Buffer
+		if err := run([]string{"-regex", tt.pattern, "-text", tt.text}, &output, &diagnostics); err != nil {
+			t.Fatal(err)
+		}
+		if output.String() != tt.want {
+			t.Errorf("pattern %q: got %q, want %q", tt.pattern, output.String(), tt.want)
 		}
 	}
 }

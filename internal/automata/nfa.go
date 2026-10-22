@@ -27,11 +27,13 @@ func (n *NFA) build(tree *parse.RegExTree) Fragment {
 		n.States[R1.Accept].Epsilon = append(n.States[R1.Accept].Epsilon, newAccept)
 		n.States[R2.Accept].Epsilon = append(n.States[R2.Accept].Epsilon, newAccept)
 		return Fragment{Start: newStart, Accept: newAccept}
-	case parse.STAR:
+	case parse.STAR, parse.PLUS:
 		newStart := n.newState()
 		R1 := n.build(tree.SubTrees[0])
 		newAccept := n.newState()
-		n.States[newStart].Epsilon = append(n.States[newStart].Epsilon, newAccept)
+		if tree.Root == parse.STAR {
+			n.States[newStart].Epsilon = append(n.States[newStart].Epsilon, newAccept)
+		}
 		n.States[newStart].Epsilon = append(n.States[newStart].Epsilon, R1.Start)
 		n.States[R1.Accept].Epsilon = append(n.States[R1.Accept].Epsilon, R1.Start)
 		n.States[R1.Accept].Epsilon = append(n.States[R1.Accept].Epsilon, newAccept)

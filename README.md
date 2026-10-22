@@ -20,6 +20,7 @@ Search a file:
 
 ```bash
 ./bin/mgrep -regex 'ab' -file internal/search/testdata/sample.txt
+./bin/mgrep -regex 'S(a|g|r)+on' -file book.txt
 ```
 
 A line such as `xxabyy` matches because it contains `ab`.
@@ -81,11 +82,12 @@ It compares from right to left and combines bad-character and strong good-suffix
 - Alternation: `a|b`
 - Parentheses: `(a|b)c`
 - Zero or more repetitions: `a*`
+- One or more repetitions: `a+`, including groups such as `(ab)+`
 - Any one character: `.`
 
 The DFA engine decodes input text as Unicode runes. KMP and Boyer–Moore compare bytes, which supports exact searches for their ASCII alphanumeric patterns in UTF-8 text. Search operates on individual file lines; matches do not cross line boundaries.
 
-This is a restricted regex implementation, not a full replacement for `grep -E`. Character classes, `+`, `?`, anchors, escaping, and backreferences are not supported.
+This is a restricted regex implementation, not a full replacement for `grep -E`. Character classes, `?`, anchors, escaping, and backreferences are not supported.
 
 ## Tests
 

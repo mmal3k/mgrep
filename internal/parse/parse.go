@@ -6,6 +6,7 @@ import "fmt"
 const (
 	CONCAT            = 0xC04CA7
 	STAR              = 0xE7011E
+	PLUS              = 0xA11CE
 	ALTERNATION       = 0xA17E54
 	PROTECTION        = 0xBADDAD
 	OPEN_PARENTHESIS  = 0x16641664
@@ -42,6 +43,8 @@ func (t *RegExTree) rootToString() string {
 		return "."
 	case STAR:
 		return "*"
+	case PLUS:
+		return "+"
 	case ALTERNATION:
 		return "|"
 	case DOT:
@@ -59,7 +62,7 @@ func Parse(regEx string) (*RegExTree, error) {
 	for i := 0; i < len(regEx); i++ {
 		c := regEx[i]
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-			c == '.' || c == '*' || c == '|' || c == '(' || c == ')') {
+			c == '.' || c == '*' || c == '+' || c == '|' || c == '(' || c == ')') {
 			return nil, fmt.Errorf("unsupported character %q at position %d", c, i)
 		}
 		result = append(result, newRegExTree(charToRoot(regEx[i]), nil))
@@ -73,6 +76,8 @@ func charToRoot(c byte) int {
 		return DOT
 	case '*':
 		return STAR
+	case '+':
+		return PLUS
 	case '|':
 		return ALTERNATION
 	case '(':
@@ -92,8 +97,8 @@ func parseTrees(result []*RegExTree) (*RegExTree, error) {
 			return nil, err
 		}
 	}
-	for containStar(result) {
-		result, err = processStar(result)
+	for containRepetition(result) {
+		result, err = processRepetition(result)
 		if err != nil {
 			return nil, err
 		}
@@ -162,26 +167,26 @@ func processParentheses(trees []*RegExTree) ([]*RegExTree, error) {
 	return nil, fmt.Errorf("unmatched '('")
 }
 
-func containStar(trees []*RegExTree) bool {
+func containRepetition(trees []*RegExTree) bool {
 	for _, t := range trees {
-		if t.Root == STAR && len(t.SubTrees) == 0 {
+		if (t.Root == STAR || t.Root == PLUS) && len(t.SubTrees) == 0 {
 			return true
 		}
 	}
 	return false
 }
 
-func processStar(trees []*RegExTree) ([]*RegExTree, error) {
+func processRepetition(trees []*RegExTree) ([]*RegExTree, error) {
 	result := make([]*RegExTree, 0, len(trees))
 	for i, tree := range trees {
-		if tree.Root == STAR && len(tree.SubTrees) == 0 {
+		if (tree.Root == STAR || tree.Root == PLUS) && len(tree.SubTrees) == 0 {
 			if len(result) == 0 || result[len(result)-1].Root == ALTERNATION ||
 				result[len(result)-1].Root == OPEN_PARENTHESIS {
-				return nil, fmt.Errorf("lonely '*'")
+				return nil, fmt.Errorf("lonely %q", tree.rootToString())
 			}
 			last := result[len(result)-1]
 			result = result[:len(result)-1]
-			result = append(result, newRegExTree(STAR, []*RegExTree{last}))
+			result = append(result, newRegExTree(tree.Root, []*RegExTree{last}))
 			result = append(result, trees[i+1:]...)
 			return result, nil
 		}
