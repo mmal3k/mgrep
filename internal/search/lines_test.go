@@ -68,3 +68,18 @@ func TestLinesContainingMatch(t *testing.T) {
 		})
 	}
 }
+
+func TestPrettyLinesWithoutColor(t *testing.T) {
+	matcher, err := NewMatcher("S(a|g|r)+on")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := LinesWithStyle("testdata/sample.txt", &output, matcher, LineStyle{Pretty: true}); err != nil {
+		t.Fatal(err)
+	}
+	want := "Line 8 | Sargon ruled Babylon.\n\nLine 9 | Sagon appears in this line.\n\nLine 10 | Sron appears in this line.\n\n"
+	if got := output.String(); got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

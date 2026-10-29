@@ -27,6 +27,9 @@ func TestBoyerMooreExhaustive(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, text := range texts {
+			if got, want := matcher.Index(text), strings.Index(text, pattern); got != want {
+				t.Fatalf("pattern %q, text %q: got index %d, want %d", pattern, text, got, want)
+			}
 			if got, want := matcher.ContainsMatch(text), strings.Contains(text, pattern); got != want {
 				t.Fatalf("pattern %q, text %q: got %v, want %v", pattern, text, got, want)
 			}

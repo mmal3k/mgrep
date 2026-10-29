@@ -18,6 +18,8 @@ type options struct {
 	text      *string
 	path      string
 	debug     bool
+	format    string
+	color     string
 }
 
 func main() {
@@ -42,7 +44,7 @@ func run(args []string, output io.Writer, diagnostics io.Writer) error {
 		}
 	}
 	if opts.path != "" {
-		return searchFile(opts.pattern, opts.path, opts.algorithm, output)
+		return searchFile(opts, output)
 	}
 	if opts.text != nil {
 		return testText(opts.pattern, *opts.text, opts.algorithm, output)
@@ -55,6 +57,8 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	flags := flag.NewFlagSet("mgrep", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&opts.algorithm, "algorithm", "dfa", "Search algorithm: dfa, kmp, or boyer-moore (kmp and boyer-moore require literal ASCII letters and digits)")
+	flags.StringVar(&opts.format, "format", "auto", "File output format: auto (pretty in a terminal), plain, or pretty")
+	flags.StringVar(&opts.color, "color", "auto", "Highlight file matches: auto (terminal only), always, or never")
 	flags.StringVar(&opts.pattern, "regex", "", "Regex to compile")
 	flags.StringVar(&opts.path, "file", "", "Text file to search")
 	flags.BoolVar(&opts.debug, "debug", false, "Print the syntax tree, NFA, DFA, and minimized DFA")
@@ -72,6 +76,12 @@ func readOptions(args []string, output io.Writer) (options, error) {
 	}
 	if flags.NArg() != 0 {
 		return opts, fmt.Errorf("use -regex, -text, and -file instead of positional arguments")
+	}
+	if opts.format != "auto" && opts.format != "plain" && opts.format != "pretty" {
+		return opts, fmt.Errorf("unknown format %q; choose auto, plain, or pretty", opts.format)
+	}
+	if opts.color != "auto" && opts.color != "always" && opts.color != "never" {
+		return opts, fmt.Errorf("unknown color mode %q; choose auto, always, or never", opts.color)
 	}
 	if opts.pattern == "" {
 		return opts, fmt.Errorf("provide a regex with -regex")
@@ -101,12 +111,21 @@ func newMatcher(pattern string, algorithm string) (search.TextMatcher, error) {
 	return search.NewMatcher(pattern)
 }
 
-func searchFile(pattern string, path string, algorithm string, output io.Writer) error {
-	matcher, err := newMatcher(pattern, algorithm)
+func searchFile(opts options, output io.Writer) error {
+	matcher, err := newMatcher(opts.pattern, opts.algorithm)
 	if err != nil {
-		return fmt.Errorf("invalid pattern %q: %w", pattern, err)
+		return fmt.Errorf("invalid pattern %q: %w", opts.pattern, err)
 	}
-	return search.Lines(path, output, matcher)
+	terminal := isTerminal(output)
+	style := search.LineStyle{Pretty: opts.format == "pretty" || opts.format == "auto" && terminal}
+	_, noColor := os.LookupEnv("NO_COLOR")
+	if opts.color == "always" || opts.color == "auto" && terminal && !noColor && os.Getenv("TERM") != "dumb" {
+		style.Highlighter, err = search.NewHighlighter(opts.pattern, opts.algorithm)
+		if err != nil {
+			return err
+		}
+	}
+	return search.LinesWithStyle(opts.path, output, matcher, style)
 }
 
 func testText(pattern string, text string, algorithm string, output io.Writer) error {

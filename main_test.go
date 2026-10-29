@@ -207,3 +207,29 @@ func TestRunPlus(t *testing.T) {
 		}
 	}
 }
+
+func TestRunFormattedFile(t *testing.T) {
+	for _, algorithm := range []string{"dfa", "kmp", "boyer-moore"} {
+		var output, diagnostics bytes.Buffer
+		args := []string{"-algorithm", algorithm, "-regex", "Sargon", "-file", "internal/search/testdata/sample.txt", "-format", "pretty", "-color", "always"}
+		if err := run(args, &output, &diagnostics); err != nil {
+			t.Fatal(err)
+		}
+		want := "Line 8 | \x1b[1;31mSargon\x1b[0m ruled Babylon.\n\n"
+		if got := output.String(); got != want {
+			t.Errorf("%s: got %q, want %q", algorithm, got, want)
+		}
+	}
+}
+
+func TestRunOutputOptions(t *testing.T) {
+	for _, args := range [][]string{
+		{"-regex", "ab", "-text", "ab", "-format", "invalid"},
+		{"-regex", "ab", "-text", "ab", "-color", "invalid"},
+	} {
+		var output, diagnostics bytes.Buffer
+		if err := run(args, &output, &diagnostics); err == nil {
+			t.Errorf("expected error for %v", args)
+		}
+	}
+}

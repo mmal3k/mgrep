@@ -65,6 +65,10 @@ func goodSuffixTable(pattern string) []int {
 }
 
 func (m *BoyerMooreMatcher) ContainsMatch(text string) bool {
+	return m.Index(text) >= 0
+}
+
+func (m *BoyerMooreMatcher) Index(text string) int {
 	n := len(m.pattern)
 	for offset := 0; offset <= len(text)-n; {
 		j := n - 1
@@ -72,9 +76,9 @@ func (m *BoyerMooreMatcher) ContainsMatch(text string) bool {
 			j--
 		}
 		if j < 0 {
-			return true
+			return offset
 		}
 		offset += max(1, j-m.last[text[offset+j]], m.goodSuffix[j+1])
 	}
-	return false
+	return -1
 }

@@ -2,7 +2,7 @@
 
 A Go command-line tool for searching text files with a small regular-expression engine implemented from scratch.
 
-It parses a pattern into a syntax tree, builds a Thompson epsilon-NFA, determinizes it into a DFA, and minimizes the DFA with partition refinement. For substring searches, it compiles `.*(pattern)` once and scans each line until a match is found. Matching lines are printed once, in file order.
+It parses a pattern into a syntax tree, builds a Thompson epsilon-NFA, determinizes it into a DFA, and minimizes the DFA with partition refinement. For substring searches, it compiles `.*(pattern)` once and scans each line until a match is found. Matching lines are printed once, in file order. Terminal output adds line numbers and match highlighting; redirected output stays plain by default.
 
 ## Requirements
 
@@ -121,3 +121,28 @@ internal/search/    Compiled search matcher and line processing
 - Input is supplied with `-text` or `-file`; stdin and multiple-file search are not implemented.
 - A completed search exits successfully even when no lines match; this differs from grep's no-match exit status.
 - Determinization may produce many states for complex patterns; benchmarks and resource limits are future work.
+
+## Readable terminal output
+
+Highlighting uses the selected algorithm: DFA for regex patterns, KMP for
+KMP searches, and Boyer–Moore for Boyer–Moore searches.
+
+File searches automatically show line numbers, separate matching lines with a
+blank line, and highlight matched text in bold red when writing to a terminal.
+Regex highlighting selects the leftmost, longest nonoverlapping matches; empty
+matches still select lines but have no visible highlight. Input lines remain
+complete, including long paragraphs.
+
+Redirected or piped output stays plain by default. Control formatting explicitly:
+
+```bash
+go build -o bin/mgrep .
+./bin/mgrep -regex 'S(a|g|r)+on' -file book.txt
+./bin/mgrep -regex 'Sargon' -file book.txt -format pretty -color always
+./bin/mgrep -regex 'Sargon' -file book.txt -format plain -color never
+```
+
+`-format` accepts `auto`, `plain`,
+or `pretty`; `-color` accepts `auto`, `always`, or `never`. `NO_COLOR` and
+`TERM=dumb` disable automatic highlighting. Formatting and highlighting apply
+to file-search output; `-text` keeps its acceptance summary.
