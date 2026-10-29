@@ -124,7 +124,6 @@ internal/search/    Compiled search matcher and line processing
 
 - File reading has no fixed line-length limit, but memory must hold the current line and any highlighting data.
 - Input is supplied with `-text` or `-file`; stdin and multiple-file search are not implemented.
-- A completed search exits successfully even when no lines match; this differs from grep's no-match exit status.
 - Determinization may produce many states for complex patterns; benchmarks and resource limits are future work.
 
 ## Readable terminal output
@@ -191,3 +190,21 @@ Repetition bounds are limited to 1000 and estimated expanded pattern size to
 The NFA, DFA, minimized DFA, line matcher, and highlighter support these
 extensions. Compatibility tests compare CLI output with `grep -E` in the C
 locale; Unicode behavior is also checked against a reference in unit tests.
+
+## Exit codes
+
+The CLI exits with `0` when at least one match is found, `1` when no match is
+found (including an empty input file), and `2` for invalid arguments or patterns,
+file errors, or output errors. A no-match result produces no error message.
+For `-text`, the exit code follows `Contains match`, while the acceptance summary
+is still printed. Successful help and debug-only commands exit with `0`.
+
+Read the exit code immediately after the command using `echo $?`:
+
+```bash
+./bin/mgrep -regex 'Sargon' -file book.txt
+echo $?
+```
+
+Use the compiled executable to inspect exact codes; `go run` reports unsuccessful
+child-process exits through the Go tool's own exit status.

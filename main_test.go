@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -19,7 +20,7 @@ func TestRunText(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.pattern+"/"+tt.text, func(t *testing.T) {
 			var output, diagnostics bytes.Buffer
-			if err := run([]string{"-regex", tt.pattern, "-text", tt.text}, &output, &diagnostics); err != nil {
+			if err := run([]string{"-regex", tt.pattern, "-text", tt.text}, &output, &diagnostics); err != nil && !(errors.Is(err, errNoMatch) && strings.Contains(tt.want, "Contains match: false")) {
 				t.Fatal(err)
 			}
 			if got := output.String(); got != tt.want {
@@ -116,7 +117,7 @@ func TestRunKMP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var output, diagnostics bytes.Buffer
-			if err := run(tt.args, &output, &diagnostics); err != nil {
+			if err := run(tt.args, &output, &diagnostics); err != nil && !(errors.Is(err, errNoMatch) && strings.Contains(tt.want, "Contains match: false")) {
 				t.Fatal(err)
 			}
 			if got := output.String(); got != tt.want {
@@ -158,7 +159,7 @@ func TestRunBoyerMoore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var output, diagnostics bytes.Buffer
-			if err := run(tt.args, &output, &diagnostics); err != nil {
+			if err := run(tt.args, &output, &diagnostics); err != nil && !(errors.Is(err, errNoMatch) && strings.Contains(tt.want, "Contains match: false")) {
 				t.Fatal(err)
 			}
 			if got := output.String(); got != tt.want {
@@ -199,7 +200,7 @@ func TestRunPlus(t *testing.T) {
 		{"S(a|g|r)+on", "Hello Sargon", "Text: \"Hello Sargon\"\nAccepted: false\nContains match: true\n"},
 	} {
 		var output, diagnostics bytes.Buffer
-		if err := run([]string{"-regex", tt.pattern, "-text", tt.text}, &output, &diagnostics); err != nil {
+		if err := run([]string{"-regex", tt.pattern, "-text", tt.text}, &output, &diagnostics); err != nil && !(errors.Is(err, errNoMatch) && strings.Contains(tt.want, "Contains match: false")) {
 			t.Fatal(err)
 		}
 		if output.String() != tt.want {

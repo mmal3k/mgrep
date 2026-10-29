@@ -22,10 +22,16 @@ func Lines(path string, output io.Writer, matcher TextMatcher) error {
 }
 
 func LinesWithStyle(path string, output io.Writer, matcher TextMatcher, style LineStyle) error {
+	_, err := SearchLines(path, output, matcher, style)
+	return err
+}
+
+func SearchLines(path string, output io.Writer, matcher TextMatcher, style LineStyle) (int, error) {
+	matches := 0
 	file, err := os.Open(path)
 
 	if err != nil {
-		return err
+		return matches, err
 	}
 	defer file.Close()
 
@@ -33,25 +39,25 @@ func LinesWithStyle(path string, output io.Writer, matcher TextMatcher, style Li
 	for lineNumber := 1; ; lineNumber++ {
 		line, err := reader.ReadString('\n')
 		if err != nil && err != io.EOF {
-			return err
+			return matches, err
 		}
 		if len(line) == 0 && err == io.EOF {
-			return nil
+			return matches, nil
 		}
 		line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
-		if writeErr := writeMatchingLine(output, matcher, style, lineNumber, line); writeErr != nil {
-			return writeErr
+		if matcher.ContainsMatch(line) {
+			if writeErr := writeMatchingLine(output, style, lineNumber, line); writeErr != nil {
+				return matches, writeErr
+			}
+			matches++
 		}
 		if err == io.EOF {
-			return nil
+			return matches, nil
 		}
 	}
 }
 
-func writeMatchingLine(output io.Writer, matcher TextMatcher, style LineStyle, lineNumber int, line string) error {
-	if !matcher.ContainsMatch(line) {
-		return nil
-	}
+func writeMatchingLine(output io.Writer, style LineStyle, lineNumber int, line string) error {
 	if style.Highlighter != nil {
 		line = style.Highlighter.Highlight(line)
 	}

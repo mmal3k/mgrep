@@ -26,15 +26,17 @@ func TestExtendedPatternsAgreeWithGrep(t *testing.T) {
 			cmd := exec.Command(grep, "-E", "--", pattern, path)
 			cmd.Env = append(os.Environ(), "LC_ALL=C")
 			want, err := cmd.Output()
+			wantCode := 0
 			if err != nil {
 				exit, ok := err.(*exec.ExitError)
 				if !ok || exit.ExitCode() != 1 {
 					t.Fatalf("grep failed: %v", err)
 				}
+				wantCode = 1
 			}
 			var output, diagnostics bytes.Buffer
-			if err := run([]string{"-regex", pattern, "-file", path, "-format", "plain", "-color", "never"}, &output, &diagnostics); err != nil {
-				t.Fatal(err)
+			if code := execute([]string{"-regex", pattern, "-file", path, "-format", "plain", "-color", "never"}, &output, &diagnostics); code != wantCode {
+				t.Fatalf("exit code %d, grep %d; diagnostics: %s", code, wantCode, &diagnostics)
 			}
 			if !bytes.Equal(output.Bytes(), want) {
 				t.Fatalf("output %q, grep %q", output.String(), want)

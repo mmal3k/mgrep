@@ -22,11 +22,29 @@ type options struct {
 	color     string
 }
 
+var errNoMatch = errors.New("no matching lines")
+
 func main() {
-	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	os.Exit(execute(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func execute(args []string, output io.Writer, diagnostics io.Writer) int {
+	err := run(args, output, diagnostics)
+	code := exitCode(err)
+	if code == 2 {
+		fmt.Fprintln(diagnostics, err)
 	}
+	return code
+}
+
+func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	if errors.Is(err, errNoMatch) {
+		return 1
+	}
+	return 2
 }
 
 func run(args []string, output io.Writer, diagnostics io.Writer) error {
@@ -125,7 +143,14 @@ func searchFile(opts options, output io.Writer) error {
 			return err
 		}
 	}
-	return search.LinesWithStyle(opts.path, output, matcher, style)
+	matches, err := search.SearchLines(opts.path, output, matcher, style)
+	if err != nil {
+		return err
+	}
+	if matches == 0 {
+		return errNoMatch
+	}
+	return nil
 }
 
 func testText(pattern string, text string, algorithm string, output io.Writer) error {
@@ -142,8 +167,14 @@ func testText(pattern string, text string, algorithm string, output io.Writer) e
 		dfa := automata.FromTree(tree).Determinize().Minimize()
 		accepted = dfa.IsAccepted(text)
 	}
-	_, err = fmt.Fprintf(output, "Text: %q\nAccepted: %t\nContains match: %t\n", text, accepted, matcher.ContainsMatch(text))
-	return err
+	matched := matcher.ContainsMatch(text)
+	if _, err := fmt.Fprintf(output, "Text: %q\nAccepted: %t\nContains match: %t\n", text, accepted, matched); err != nil {
+		return err
+	}
+	if !matched {
+		return errNoMatch
+	}
+	return nil
 }
 
 func printAutomata(pattern string, output io.Writer) error {
