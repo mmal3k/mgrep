@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 type TextMatcher interface {
@@ -28,28 +29,36 @@ func LinesWithStyle(path string, output io.Writer, matcher TextMatcher, style Li
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-
-	lineNumber := 0
-	for scanner.Scan() {
-		lineNumber++
-		line := scanner.Text()
-		if !matcher.ContainsMatch(line) {
-			continue
-		}
-		if style.Highlighter != nil {
-			line = style.Highlighter.Highlight(line)
-		}
-		if style.Pretty {
-			if _, err := fmt.Fprintf(output, "Line %d | %s\n\n", lineNumber, line); err != nil {
-				return err
-			}
-			continue
-		}
-		if _, err := fmt.Fprintln(output, line); err != nil {
+	reader := bufio.NewReader(file)
+	for lineNumber := 1; ; lineNumber++ {
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
 			return err
 		}
+		if len(line) == 0 && err == io.EOF {
+			return nil
+		}
+		line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
+		if writeErr := writeMatchingLine(output, matcher, style, lineNumber, line); writeErr != nil {
+			return writeErr
+		}
+		if err == io.EOF {
+			return nil
+		}
 	}
+}
 
-	return scanner.Err()
+func writeMatchingLine(output io.Writer, matcher TextMatcher, style LineStyle, lineNumber int, line string) error {
+	if !matcher.ContainsMatch(line) {
+		return nil
+	}
+	if style.Highlighter != nil {
+		line = style.Highlighter.Highlight(line)
+	}
+	if style.Pretty {
+		_, err := fmt.Fprintf(output, "Line %d | %s\n\n", lineNumber, line)
+		return err
+	}
+	_, err := fmt.Fprintln(output, line)
+	return err
 }

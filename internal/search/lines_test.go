@@ -2,6 +2,9 @@ package search
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -81,5 +84,100 @@ func TestPrettyLinesWithoutColor(t *testing.T) {
 	want := "Line 8 | Sargon ruled Babylon.\n\nLine 9 | Sagon appears in this line.\n\nLine 10 | Sron appears in this line.\n\n"
 	if got := output.String(); got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestLongLines(t *testing.T) {
+	long := strings.Repeat("x", 1024*1024) + "Sargon"
+	factories := []struct {
+		name string
+		new  func(string) (TextMatcher, error)
+	}{
+		{"dfa", func(pattern string) (TextMatcher, error) { return NewMatcher(pattern) }},
+		{"kmp", func(pattern string) (TextMatcher, error) { return NewKMPMatcher(pattern) }},
+		{"boyer-moore", func(pattern string) (TextMatcher, error) { return NewBoyerMooreMatcher(pattern) }},
+	}
+	for _, factory := range factories {
+		for _, ending := range []string{"\n", "\r\n", ""} {
+			t.Run(factory.name+"/"+fmtEnding(ending), func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "long.txt")
+				input := strings.Repeat("x", 1024*1024) + "\nSargon\n" + long + ending
+				if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+					t.Fatal(err)
+				}
+				matcher, err := factory.new("Sargon")
+				if err != nil {
+					t.Fatal(err)
+				}
+				var output bytes.Buffer
+				if err := Lines(path, &output, matcher); err != nil {
+					t.Fatal(err)
+				}
+				if got, want := output.String(), "Sargon\n"+long+"\n"; got != want {
+					t.Fatalf("incorrect long-line output: got %d bytes, want %d", len(got), len(want))
+				}
+			})
+		}
+	}
+}
+
+func fmtEnding(ending string) string {
+	switch ending {
+	case "\n":
+		return "LF"
+	case "\r\n":
+		return "CRLF"
+	default:
+		return "no-newline"
+	}
+}
+
+func TestLineEndings(t *testing.T) {
+	matcher, err := NewMatcher(".*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct{ input, want string }{
+		{"", ""},
+		{"\n", "\n"},
+		{"ab\n", "ab\n"},
+		{"ab", "ab\n"},
+		{"ab\r\n\r\ncd\r", "ab\n\ncd\n"},
+	} {
+		path := filepath.Join(t.TempDir(), "lines.txt")
+		if err := os.WriteFile(path, []byte(tt.input), 0600); err != nil {
+			t.Fatal(err)
+		}
+		var output bytes.Buffer
+		if err := Lines(path, &output, matcher); err != nil {
+			t.Fatal(err)
+		}
+		if got := output.String(); got != tt.want {
+			t.Errorf("input %q: got %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestPrettyLongLineWithHighlighting(t *testing.T) {
+	prefix := strings.Repeat("x", 128*1024)
+	path := filepath.Join(t.TempDir(), "long.txt")
+	if err := os.WriteFile(path, []byte("ignored\n"+prefix+"Sargon"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	matcher, err := NewMatcher("Sargon")
+	if err != nil {
+		t.Fatal(err)
+	}
+	highlighter, err := NewHighlighter("Sargon", "dfa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := LinesWithStyle(path, &output, matcher, LineStyle{Pretty: true, Highlighter: highlighter}); err != nil {
+		t.Fatal(err)
+	}
+	want := "Line 2 | " + prefix + "\x1b[1;31mSargon\x1b[0m\n\n"
+	if output.String() != want {
+		t.Fatal("incorrect formatting or highlighting of long line")
 	}
 }
