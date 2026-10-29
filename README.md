@@ -77,17 +77,22 @@ It compares from right to left and combines bad-character and strong good-suffix
 
 ## Supported patterns
 
-- ASCII letters, with case-sensitive matching
+- Literal digits, punctuation, and Unicode characters, with case-sensitive matching
 - Concatenation: `ab`
 - Alternation: `a|b`
 - Parentheses: `(a|b)c`
 - Zero or more repetitions: `a*`
 - One or more repetitions: `a+`, including groups such as `(ab)+`
+- Optional expressions: `a?`
+- Repetition bounds: `a{3}`, `a{2,4}`, `a{2,}`
+- Bracket lists, ranges, and negation: `[abc]`, `[a-z]`, `[^abc]`
+- Line anchors: `^` and `$`
+- Escaped punctuation: `a\.b`
 - Any one character: `.`
 
 The DFA engine decodes input text as Unicode runes. KMP and Boyer–Moore compare bytes, which supports exact searches for their ASCII alphanumeric patterns in UTF-8 text. Search operates on individual file lines; matches do not cross line boundaries.
 
-This is a restricted regex implementation, not a full replacement for `grep -E`. Character classes, `?`, anchors, escaping, and backreferences are not supported.
+This is a restricted regex implementation, not a full replacement for `grep -E`. POSIX named/collating classes and backreferences are not supported.
 
 ## Tests
 
@@ -117,7 +122,7 @@ internal/search/    Compiled search matcher and line processing
 
 ## Current limitations
 
-- File scanning currently uses Go Scanner's default limit of roughly 64 KiB per line; longer lines return an error.
+- File reading has no fixed line-length limit, but memory must hold the current line and any highlighting data.
 - Input is supplied with `-text` or `-file`; stdin and multiple-file search are not implemented.
 - A completed search exits successfully even when no lines match; this differs from grep's no-match exit status.
 - Determinization may produce many states for complex patterns; benchmarks and resource limits are future work.
@@ -146,3 +151,43 @@ go build -o bin/mgrep .
 or `pretty`; `-color` accepts `auto`, `always`, or `never`. `NO_COLOR` and
 `TERM=dumb` disable automatic highlighting. Formatting and highlighting apply
 to file-search output; `-text` keeps its acceptance summary.
+
+## Extended DFA pattern syntax
+
+The default DFA engine supports digits, punctuation, and Unicode literals in
+addition to the assignment's ASCII-letter subset. These examples work with
+`-regex`:
+
+| Syntax | Example | Meaning |
+|---|---|---|
+| Literal text | `abc123`, `hello!`, `café` | Match the given characters |
+| Character list | `[abc]` | One of the listed characters |
+| Range | `[a-z]`, `[0-9]` | One character in the range |
+| Negated class | `[^abc]` | One character outside the class |
+| Optional | `colou?r` | `color` or `colour` |
+| Exact count | `a{3}` | Exactly three repetitions |
+| Bounded count | `a{2,4}` | Two through four repetitions |
+| Minimum count | `a{2,}` | At least two repetitions |
+| Start/end anchors | `^cat`, `cat$`, `^cat$` | Restrict a match to line boundaries |
+| Escaped operator | `a\.b` | Match a literal dot |
+
+Groups can also be repeated, for example `(ab){2,4}`. Quote patterns in the
+shell, using single quotes to preserve backslashes:
+
+```bash
+./bin/mgrep -regex '^S[a-z]+[0-9]*!$' -text 'Sargon123!'
+./bin/mgrep -regex 'a\.b' -text 'a.b'
+```
+
+KMP and Boyer–Moore retain their literal ASCII-letter-and-digit pattern syntax.
+Ranges use Unicode code-point order rather than locale collation. POSIX named
+classes such as `[[:digit:]]`, collating/equivalence classes, backreferences,
+and shorthand escapes such as `\d` are not implemented. Inside bracket
+expressions, backslash is a literal character; put `]` first and `-` first or
+last when matching those characters literally.
+
+Repetition bounds are limited to 1000 and estimated expanded pattern size to
+10000 states. Unbounded repetition such as `a{2,}` has no maximum match length.
+The NFA, DFA, minimized DFA, line matcher, and highlighter support these
+extensions. Compatibility tests compare CLI output with `grep -E` in the C
+locale; Unicode behavior is also checked against a reference in unit tests.
