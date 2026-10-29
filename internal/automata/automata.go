@@ -11,6 +11,7 @@ type State struct {
 	On      map[rune][]int
 	Any     []int
 	Epsilon []int
+	Ranges  []RangeTransition
 }
 
 type Fragment struct {
@@ -35,7 +36,17 @@ func (n *Automaton) String() string {
 		sort.Slice(letters, func(i, j int) bool { return letters[i] < letters[j] })
 		for _, letter := range letters {
 			for _, destination := range state.On[letter] {
-				fmt.Fprintf(&output, "%d --%c--> %d\n", id, letter, destination)
+				if letter < 0 {
+					label := map[rune]string{StartOfLine: "^", EndOfLine: "$", EmptyLine: "EMPTY-LINE"}[letter]
+					fmt.Fprintf(&output, "%d --%s--> %d\n", id, label, destination)
+				} else {
+					fmt.Fprintf(&output, "%d --%c--> %d\n", id, letter, destination)
+				}
+			}
+		}
+		for _, r := range state.Ranges {
+			for _, destination := range r.To {
+				fmt.Fprintf(&output, "%d --[%U-%U]--> %d\n", id, r.Lo, r.Hi, destination)
 			}
 		}
 		for _, destination := range state.Any {
@@ -80,34 +91,21 @@ func (a *Automaton) epsilonClosure(state int) []int {
 }
 
 func (a *Automaton) IsAccepted(text string) bool {
-	current := make(map[int]bool)
-
-	for _, state := range a.epsilonClosure(a.Start) {
-		current[state] = true
+	boundary := StartOfLine
+	if text == "" {
+		boundary = EmptyLine
 	}
-
-	for _, c := range text {
-		next := make(map[int]bool)
-
-		for state := range current {
-			destinations := append([]int{}, a.States[state].On[c]...)
-			destinations = append(destinations, a.States[state].Any...)
-
-			for _, destination := range destinations {
-				for _, reachable := range a.epsilonClosure(destination) {
-					next[reachable] = true
-				}
-			}
-		}
-
-		if len(next) == 0 {
+	current := a.boundaryClosure([]int{a.Start}, boundary)
+	for _, letter := range text {
+		current = a.destinations(current, letter)
+		if len(current) == 0 {
 			return false
 		}
-
-		current = next
 	}
-
-	for state := range current {
+	if text != "" {
+		current = a.boundaryClosure(current, EndOfLine)
+	}
+	for _, state := range current {
 		if slices.Contains(a.Accept, state) {
 			return true
 		}

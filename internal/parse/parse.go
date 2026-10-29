@@ -12,11 +12,22 @@ const (
 	OPEN_PARENTHESIS  = 0x16641664
 	CLOSE_PARENTHESIS = 0x51515151
 	DOT               = 0xD07
+	LITERAL           = -10
+	CLASS             = -11
+	OPTIONAL          = -12
+	REPEAT            = -13
+	BEGIN             = -14
+	END               = -15
 )
 
 type RegExTree struct {
 	Root     int
 	SubTrees []*RegExTree
+	Value    rune
+	Ranges   []RuneRange
+	Negated  bool
+	Min      int
+	Max      int
 }
 
 func newRegExTree(root int, subTrees []*RegExTree) *RegExTree {
@@ -39,6 +50,24 @@ func (t *RegExTree) String() string {
 
 func (t *RegExTree) rootToString() string {
 	switch t.Root {
+	case LITERAL:
+		return string(t.Value)
+	case CLASS:
+		return t.classString()
+	case OPTIONAL:
+		return "?"
+	case REPEAT:
+		if t.Max < 0 {
+			return fmt.Sprintf("{%d,}", t.Min)
+		}
+		if t.Min == t.Max {
+			return fmt.Sprintf("{%d}", t.Min)
+		}
+		return fmt.Sprintf("{%d,%d}", t.Min, t.Max)
+	case BEGIN:
+		return "^"
+	case END:
+		return "$"
 	case CONCAT:
 		return "."
 	case STAR:
@@ -58,16 +87,18 @@ func Parse(regEx string) (*RegExTree, error) {
 	if len(regEx) < 1 {
 		return nil, fmt.Errorf("empty regEx")
 	}
-	result := make([]*RegExTree, 0, len(regEx))
-	for i := 0; i < len(regEx); i++ {
-		c := regEx[i]
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-			c == '.' || c == '*' || c == '+' || c == '|' || c == '(' || c == ')') {
-			return nil, fmt.Errorf("unsupported character %q at position %d", c, i)
-		}
-		result = append(result, newRegExTree(charToRoot(regEx[i]), nil))
+	result, err := tokenize(regEx)
+	if err != nil {
+		return nil, err
 	}
-	return parseTrees(result)
+	tree, err := parseTrees(result)
+	if err != nil {
+		return nil, err
+	}
+	if treeSize(tree) > 10000 {
+		return nil, fmt.Errorf("pattern expansion exceeds 10000 states")
+	}
+	return tree, nil
 }
 
 func charToRoot(c byte) int {
@@ -78,6 +109,12 @@ func charToRoot(c byte) int {
 		return STAR
 	case '+':
 		return PLUS
+	case '?':
+		return OPTIONAL
+	case '^':
+		return BEGIN
+	case '$':
+		return END
 	case '|':
 		return ALTERNATION
 	case '(':
@@ -169,7 +206,7 @@ func processParentheses(trees []*RegExTree) ([]*RegExTree, error) {
 
 func containRepetition(trees []*RegExTree) bool {
 	for _, t := range trees {
-		if (t.Root == STAR || t.Root == PLUS) && len(t.SubTrees) == 0 {
+		if isRepetition(t.Root) && len(t.SubTrees) == 0 {
 			return true
 		}
 	}
@@ -179,14 +216,17 @@ func containRepetition(trees []*RegExTree) bool {
 func processRepetition(trees []*RegExTree) ([]*RegExTree, error) {
 	result := make([]*RegExTree, 0, len(trees))
 	for i, tree := range trees {
-		if (tree.Root == STAR || tree.Root == PLUS) && len(tree.SubTrees) == 0 {
+		if isRepetition(tree.Root) && len(tree.SubTrees) == 0 {
 			if len(result) == 0 || result[len(result)-1].Root == ALTERNATION ||
-				result[len(result)-1].Root == OPEN_PARENTHESIS {
+				result[len(result)-1].Root == OPEN_PARENTHESIS ||
+				result[len(result)-1].Root == BEGIN || result[len(result)-1].Root == END {
 				return nil, fmt.Errorf("lonely %q", tree.rootToString())
 			}
 			last := result[len(result)-1]
 			result = result[:len(result)-1]
-			result = append(result, newRegExTree(tree.Root, []*RegExTree{last}))
+			repetition := *tree
+			repetition.SubTrees = []*RegExTree{last}
+			result = append(result, &repetition)
 			result = append(result, trees[i+1:]...)
 			return result, nil
 		}
@@ -266,5 +306,7 @@ func removeProtection(tree *RegExTree) (*RegExTree, error) {
 		}
 		subTrees = append(subTrees, cleaned)
 	}
-	return newRegExTree(tree.Root, subTrees), nil
+	cleaned := *tree
+	cleaned.SubTrees = subTrees
+	return &cleaned, nil
 }

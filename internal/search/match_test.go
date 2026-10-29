@@ -48,7 +48,7 @@ func TestContainsMatch(t *testing.T) {
 }
 
 func TestNewMatcherRejectsInvalidPatterns(t *testing.T) {
-	for _, pattern := range []string{"", "(", "a|", "+a", "[a-z]"} {
+	for _, pattern := range []string{"", "(", "a|", "+a", "[z-a]"} {
 		if _, err := NewMatcher(pattern); err == nil {
 			t.Errorf("should reject %q", pattern)
 		}

@@ -77,25 +77,30 @@ func (h *Highlighter) FindMatches(text string) []MatchSpan {
 	current := make([]int, len(next))
 	for state := range next {
 		next[state] = -1
-		if h.accepting[state] {
+		endState := h.dfa.Next(state, automata.EndOfLine)
+		if endState >= 0 && h.accepting[endState] {
 			next[state] = len(letters)
 		}
 	}
 	for i := len(letters) - 1; i >= 0; i-- {
-		for state, transitions := range h.dfa.States {
+		for state := range h.dfa.States {
 			current[state] = -1
 			if h.accepting[state] {
 				current[state] = i
 			}
-			destination, ok := transitions.On[letters[i]]
-			if !ok {
-				destination = transitions.Any
-			}
-			if len(destination) > 0 {
-				current[state] = max(current[state], next[destination[0]])
+			destination := h.dfa.Next(state, letters[i])
+			if destination >= 0 {
+				current[state] = max(current[state], next[destination])
 			}
 		}
-		ends[i] = current[h.dfa.Start]
+		startState := h.dfa.Start
+		if i == 0 {
+			startState = h.dfa.Next(startState, automata.StartOfLine)
+		}
+		ends[i] = -1
+		if startState >= 0 {
+			ends[i] = current[startState]
+		}
 		next, current = current, next
 	}
 	var spans []MatchSpan

@@ -2,8 +2,8 @@ package automata
 
 import (
 	"github.com/mmal3k/mgrep/internal/parse"
-	"maps"
 	"slices"
+	"unicode/utf8"
 )
 
 type NFA struct {
@@ -38,6 +38,42 @@ func (n *NFA) build(tree *parse.RegExTree) Fragment {
 		n.States[R1.Accept].Epsilon = append(n.States[R1.Accept].Epsilon, R1.Start)
 		n.States[R1.Accept].Epsilon = append(n.States[R1.Accept].Epsilon, newAccept)
 		return Fragment{Start: newStart, Accept: newAccept}
+	case parse.OPTIONAL:
+		return n.repeat(tree.SubTrees[0], 0, 1)
+	case parse.REPEAT:
+		return n.repeat(tree.SubTrees[0], tree.Min, tree.Max)
+	case parse.CLASS:
+		start := n.newState()
+		end := n.newState()
+		ranges := append([]parse.RuneRange(nil), tree.Ranges...)
+		if tree.Negated {
+			slices.SortFunc(ranges, func(a, b parse.RuneRange) int { return int(a.Lo - b.Lo) })
+			var complement []parse.RuneRange
+			next := rune(0)
+			for _, r := range ranges {
+				if r.Lo > next {
+					complement = append(complement, parse.RuneRange{Lo: next, Hi: r.Lo - 1})
+				}
+				next = max(next, r.Hi+1)
+			}
+			if next <= utf8.MaxRune {
+				complement = append(complement, parse.RuneRange{Lo: next, Hi: utf8.MaxRune})
+			}
+			ranges = complement
+		}
+		for _, r := range ranges {
+			n.States[start].setRange(r.Lo, r.Hi, end)
+		}
+		return Fragment{Start: start, Accept: end}
+	case parse.BEGIN, parse.END:
+		start := n.newState()
+		end := n.newState()
+		boundary := StartOfLine
+		if tree.Root == parse.END {
+			boundary = EndOfLine
+		}
+		n.States[start].On[boundary] = []int{end}
+		return Fragment{Start: start, Accept: end}
 	case parse.DOT:
 		newStart := n.newState()
 		newAccept := n.newState()
@@ -47,6 +83,9 @@ func (n *NFA) build(tree *parse.RegExTree) Fragment {
 		newStart := n.newState()
 		newAccept := n.newState()
 		letter := rune(tree.Root)
+		if tree.Root == parse.LITERAL {
+			letter = tree.Value
+		}
 		n.States[newStart].On[letter] = []int{newAccept}
 		return Fragment{Start: newStart, Accept: newAccept}
 	}
@@ -62,87 +101,88 @@ func FromTree(tree *parse.RegExTree) *NFA {
 	return n
 }
 
+func (n *NFA) repeat(tree *parse.RegExTree, min, max int) Fragment {
+	start := n.newState()
+	current := start
+	for i := 0; i < min; i++ {
+		part := n.build(tree)
+		n.States[current].Epsilon = append(n.States[current].Epsilon, part.Start)
+		current = part.Accept
+	}
+	if max < 0 {
+		part := n.build(&parse.RegExTree{Root: parse.STAR, SubTrees: []*parse.RegExTree{tree}})
+		n.States[current].Epsilon = append(n.States[current].Epsilon, part.Start)
+		return Fragment{Start: start, Accept: part.Accept}
+	}
+	exits := []int{current}
+	for i := min; i < max; i++ {
+		part := n.build(tree)
+		n.States[current].Epsilon = append(n.States[current].Epsilon, part.Start)
+		current = part.Accept
+		exits = append(exits, current)
+	}
+	end := n.newState()
+	for _, state := range exits {
+		n.States[state].Epsilon = append(n.States[state].Epsilon, end)
+	}
+	return Fragment{Start: start, Accept: end}
+}
+
 func (n *NFA) Determinize() *DFA {
 	d := &DFA{}
-
-	// subset is to map each state of the DFA to its list on the NFA
 	closure := n.epsilonClosure(n.Start)
 	slices.Sort(closure)
 	d.Start = d.newState()
-	subset := [][]int{closure}
-
-	addSubset := func(currentId int, anyDestinations map[int]bool) {
-		destinations := make(map[rune]map[int]bool)
-		for _, state := range subset[currentId] {
-			for letter, nextStates := range n.States[state].On {
-				if destinations[letter] == nil {
-					destinations[letter] = make(map[int]bool)
-				}
-				for _, nextId := range nextStates {
-					for _, reachable := range n.epsilonClosure(nextId) {
-						destinations[letter][reachable] = true
-					}
-				}
+	subsets := [][]int{closure}
+	intern := func(states []int) int {
+		for id, existing := range subsets {
+			if slices.Equal(existing, states) {
+				return id
 			}
 		}
-
-		for _, letter := range slices.Sorted(maps.Keys(destinations)) {
-			states := destinations[letter]
-			for reachable := range anyDestinations {
-				states[reachable] = true
-			}
-			nextList := slices.Sorted(maps.Keys(states))
-			nextId := slices.IndexFunc(subset, func(existing []int) bool {
-				return slices.Equal(existing, nextList)
-			})
-			if nextId == -1 {
-				nextId = d.newState()
-				subset = append(subset, nextList)
-			}
-			d.States[currentId].On[letter] = []int{nextId}
+		id := d.newState()
+		subsets = append(subsets, states)
+		return id
+	}
+	cuts := alphabet(n.States)
+	boundaries := false
+	for _, state := range n.States {
+		if len(state.On[StartOfLine]) > 0 || len(state.On[EndOfLine]) > 0 {
+			boundaries = true
+			break
 		}
 	}
-
-	addAccept := func(currentId int) {
-		for _, state := range subset[currentId] {
+	for current := 0; current < len(subsets); current++ {
+		states := subsets[current]
+		fallback := n.destinations(states, otherCharacter)
+		if len(fallback) > 0 {
+			target := intern(fallback)
+			d.States[current].Any = []int{target}
+		}
+		for i := 0; i+1 < len(cuts); i++ {
+			next := n.destinations(states, cuts[i])
+			if slices.Equal(next, fallback) {
+				continue
+			}
+			target := intern(next)
+			d.States[current].setRange(cuts[i], cuts[i+1]-1, target)
+		}
+		if boundaries {
+			for _, marker := range []rune{StartOfLine, EndOfLine, EmptyLine} {
+				next := n.boundaryClosure(states, marker)
+				if slices.Equal(next, states) {
+					continue
+				}
+				target := intern(next)
+				d.States[current].On[marker] = []int{target}
+			}
+		}
+		for _, state := range states {
 			if slices.Contains(n.Accept, state) {
-				d.Accept = append(d.Accept, currentId)
+				d.Accept = append(d.Accept, current)
 				break
 			}
 		}
 	}
-
-	addAny := func(currentId int) map[int]bool {
-		destinations := make(map[int]bool)
-		for _, state := range subset[currentId] {
-			for _, nextId := range n.States[state].Any {
-				for _, reachable := range n.epsilonClosure(nextId) {
-					destinations[reachable] = true
-				}
-			}
-		}
-
-		if len(destinations) == 0 {
-			return destinations
-		}
-
-		nextList := slices.Sorted(maps.Keys(destinations))
-		nextId := slices.IndexFunc(subset, func(existing []int) bool {
-			return slices.Equal(existing, nextList)
-		})
-		if nextId == -1 {
-			nextId = d.newState()
-			subset = append(subset, nextList)
-		}
-		d.States[currentId].Any = []int{nextId}
-		return destinations
-	}
-
-	for currentId := 0; currentId < len(subset); currentId++ {
-		anyDestinations := addAny(currentId)
-		addSubset(currentId, anyDestinations)
-		addAccept(currentId)
-	}
-
 	return d
 }

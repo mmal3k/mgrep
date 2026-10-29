@@ -11,10 +11,13 @@ type Matcher struct {
 }
 
 func NewMatcher(pattern string) (*Matcher, error) {
-	tree, err := parse.Parse(".*(" + pattern + ")")
+	tree, err := parse.Parse(pattern)
 	if err != nil {
 		return nil, err
 	}
+	tree = &parse.RegExTree{Root: parse.CONCAT, SubTrees: []*parse.RegExTree{
+		{Root: parse.STAR, SubTrees: []*parse.RegExTree{{Root: parse.DOT}}}, tree,
+	}}
 	dfa := automata.FromTree(tree).Determinize().Minimize()
 	accepting := make([]bool, len(dfa.States))
 	for _, state := range dfa.Accept {
@@ -25,28 +28,23 @@ func NewMatcher(pattern string) (*Matcher, error) {
 }
 
 func (m *Matcher) ContainsMatch(text string) bool {
-	current := m.dfa.Start
-
-	if m.accepting[current] == true {
+	boundary := automata.StartOfLine
+	if text == "" {
+		boundary = automata.EmptyLine
+	}
+	current := m.dfa.Next(m.dfa.Start, boundary)
+	if current >= 0 && m.accepting[current] {
 		return true
 	}
-
 	for _, letter := range text {
-		next, ok := m.dfa.States[current].On[letter]
-
-		if !ok {
-			next = m.dfa.States[current].Any
-		}
-
-		if len(next) == 0 {
+		current = m.dfa.Next(current, letter)
+		if current < 0 {
 			return false
 		}
-
-		current = next[0]
-
-		if m.accepting[current] == true {
+		if m.accepting[current] {
 			return true
 		}
 	}
-	return false
+	current = m.dfa.Next(current, automata.EndOfLine)
+	return current >= 0 && m.accepting[current]
 }

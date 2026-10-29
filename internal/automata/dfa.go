@@ -1,7 +1,6 @@
 package automata
 
 import (
-	"maps"
 	"slices"
 	"strings"
 )
@@ -15,19 +14,20 @@ func (d *DFA) String() string {
 }
 
 func (d *DFA) IsAccepted(text string) bool {
-	current := d.Start
-
+	boundary := StartOfLine
+	if text == "" {
+		boundary = EmptyLine
+	}
+	current := d.Next(d.Start, boundary)
 	for _, letter := range text {
-		next, ok := d.States[current].On[letter]
-		if !ok {
-			next = d.States[current].Any
-		}
-		if len(next) == 0 {
+		current = d.Next(current, letter)
+		if current < 0 {
 			return false
 		}
-		current = next[0]
 	}
-
+	if text != "" {
+		current = d.Next(current, EndOfLine)
+	}
 	return slices.Contains(d.Accept, current)
 }
 
@@ -90,26 +90,37 @@ func (d *DFA) Minimize() *DFA {
 		return id
 	}
 
-	destinationGroup := func(next []int) int {
-		if len(next) == 0 {
+	destinationGroup := func(state int, letter rune) int {
+		next := d.Next(state, letter)
+		if next < 0 {
 			return groupOf[len(d.States)]
 		}
-		return groupOf[next[0]]
+		return groupOf[next]
 	}
 
+	cuts := alphabet(d.States)
 	minimized.Start = addGroup(groupOf[d.Start])
 	for current := 0; current < len(pending); current++ {
 		representative := groups[pending[current]][0]
-		var state State
-		if representative < len(d.States) {
-			state = d.States[representative]
-		}
-		for _, letter := range slices.Sorted(maps.Keys(state.On)) {
-			next := addGroup(destinationGroup(state.On[letter]))
-			minimized.States[current].On[letter] = []int{next}
-		}
-		next := addGroup(destinationGroup(state.Any))
+		fallback := destinationGroup(representative, 0)
+		next := addGroup(fallback)
 		minimized.States[current].Any = []int{next}
+		for i := 0; i+1 < len(cuts); i++ {
+			group := destinationGroup(representative, cuts[i])
+			if group == fallback {
+				continue
+			}
+			next := addGroup(group)
+			minimized.States[current].setRange(cuts[i], cuts[i+1]-1, next)
+		}
+		for _, marker := range []rune{StartOfLine, EndOfLine, EmptyLine} {
+			group := destinationGroup(representative, marker)
+			if group == pending[current] {
+				continue
+			}
+			next := addGroup(group)
+			minimized.States[current].On[marker] = []int{next}
+		}
 	}
 
 	return minimized
@@ -129,39 +140,23 @@ func (d *DFA) equivalent(s1, s2 int, groupOf []int) bool {
 	if groupOf[s1] != groupOf[s2] {
 		return false
 	}
-
-	var first, second State
+	var states []State
 	if s1 < len(d.States) {
-		first = d.States[s1]
+		states = append(states, d.States[s1])
 	}
 	if s2 < len(d.States) {
-		second = d.States[s2]
+		states = append(states, d.States[s2])
 	}
-
-	destinationGroup := func(next []int) int {
-		if len(next) == 0 {
+	group := func(state int, letter rune) int {
+		next := d.Next(state, letter)
+		if next < 0 {
 			return groupOf[len(d.States)]
 		}
-		return groupOf[next[0]]
+		return groupOf[next]
 	}
-
-	if destinationGroup(first.Any) != destinationGroup(second.Any) {
-		return false
-	}
-	for letter, next1 := range first.On {
-		next2, ok := second.On[letter]
-		if !ok {
-			next2 = second.Any
-		}
-		if destinationGroup(next1) != destinationGroup(next2) {
-			return false
-		}
-	}
-	for letter, next2 := range second.On {
-		if _, ok := first.On[letter]; ok {
-			continue
-		}
-		if destinationGroup(first.Any) != destinationGroup(next2) {
+	cuts := alphabet(states)
+	for _, letter := range append(cuts[:len(cuts)-1], StartOfLine, EndOfLine, EmptyLine) {
+		if group(s1, letter) != group(s2, letter) {
 			return false
 		}
 	}
